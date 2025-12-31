@@ -24,37 +24,78 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
-const initialGoals = [
-    {
-        id: 1,
-        title: "Launch SelfOS V1",
-        category: "Career",
-        progress: 75,
-        status: "In Progress",
-        icon: Rocket
-    },
-    {
-        id: 2,
-        title: "Marathon Training",
-        category: "Health",
-        progress: 30,
-        status: "Active",
-        icon: Target
-    },
-    {
-        id: 3,
-        title: "Deep Learning Research",
-        category: "Learning",
-        progress: 10,
-        status: "Planning",
-        icon: Microscope
-    }
-];
+import { useUserStore } from "@/lib/store/userStore";
+import { db, isConfigured } from "@/lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { useEffect } from "react";
+
+type Goal = {
+    id: number;
+    title: string;
+    category: string;
+    progress: number;
+    status: string;
+    icon?: any; // We won't persist the icon component function, we'll re-map it on load or store string
+};
 
 export default function GoalsPage() {
-    const [goals, setGoals] = useState(initialGoals);
+    const { user } = useUserStore();
+    const [goals, setGoals] = useState<Goal[]>([]);
+
+    useEffect(() => {
+        try {
+            const raw = window.localStorage.getItem("selfos-goals");
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    setGoals(parsed);
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to load goals from localStorage:", e);
+        }
+    }, []);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [newGoal, setNewGoal] = useState({ title: "", category: "Career", status: "Planning", progress: 0 });
+
+    const persistGoals = (next: Goal[]) => {
+        if (typeof window !== "undefined") {
+            try {
+                // Strip icons if necessary or just save plain object
+                // For simplicity, we won't save the icon function itself to json
+                const toSave = next.map(({ icon, ...rest }) => rest);
+                window.localStorage.setItem("selfos-goals", JSON.stringify(toSave));
+            } catch (e) {
+                console.warn("Failed to save goals to localStorage:", e);
+            }
+        }
+        if (user && isConfigured) {
+            const ref = doc(db, "users", user.uid, "widgets", "goals");
+            const toSave = next.map(({ icon, ...rest }) => rest);
+            setDoc(ref, { goals: toSave }, { merge: true }).catch((e) => {
+                console.warn("Failed to save goals to DB:", e);
+            });
+        }
+    };
+
+    useEffect(() => {
+        if (!user || !isConfigured) return;
+        const load = async () => {
+            try {
+                const ref = doc(db, "users", user.uid, "widgets", "goals");
+                const snap = await getDoc(ref);
+                if (snap.exists()) {
+                    const data = snap.data() as { goals?: any[] };
+                    if (Array.isArray(data.goals) && data.goals.length) {
+                        setGoals(data.goals);
+                    }
+                }
+            } catch (e) {
+                console.warn("Failed to load goals:", e);
+            }
+        };
+        load();
+    }, [user]);
 
     const handleAddGoal = () => {
         if (!newGoal.title) return;
@@ -63,12 +104,14 @@ export default function GoalsPage() {
             id: Date.now(),
             title: newGoal.title,
             category: newGoal.category,
-            status: newGoal.status,
             progress: Number(newGoal.progress),
-            icon: newGoal.category === "Health" ? Target : newGoal.category === "Learning" ? Microscope : Rocket
+            status: newGoal.status,
+            // We'll calculate icon on render based on category
         };
 
-        setGoals([...goals, goal]);
+        const nextGoals = [...goals, goal];
+        setGoals(nextGoals);
+        persistGoals(nextGoals);
         setIsDialogOpen(false);
         setNewGoal({ title: "", category: "Career", status: "Planning", progress: 0 });
     };
@@ -154,7 +197,10 @@ export default function GoalsPage() {
                             <CardHeader className="pb-2">
                                 <div className="flex justify-between items-start">
                                     <div className="p-2 bg-white/5 rounded-lg">
-                                        <goal.icon className="w-6 h-6 text-white/80" />
+                                        {(() => {
+                                            const Icon = goal.category === "Health" ? Target : goal.category === "Learning" ? Microscope : Rocket;
+                                            return <Icon className="w-6 h-6 text-white/80" />;
+                                        })()}
                                     </div>
                                     <span className="text-xs font-mono uppercase bg-white/5 px-2 py-1 rounded text-muted-foreground">{goal.status}</span>
                                 </div>

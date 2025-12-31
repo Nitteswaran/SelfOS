@@ -36,18 +36,9 @@ interface ScheduleItem {
     type: "deep-work" | "meeting" | "habit" | "break";
 }
 
-const initialItems: ScheduleItem[] = [
-    { id: "1", title: "Morning Routine & Hydration", time: "07:00", duration: "1h", type: "habit" },
-    { id: "2", title: "Deep Work: Core Architecture", time: "08:00", duration: "2h", type: "deep-work" },
-    { id: "3", title: "Team Sync", time: "10:00", duration: "30m", type: "meeting" },
-    { id: "4", title: "Recovery / Walk", time: "10:30", duration: "30m", type: "break" },
-    { id: "5", title: "Project: Dashboard Widgets", time: "11:00", duration: "2h", type: "deep-work" },
-    { id: "6", title: "Lunch", time: "13:00", duration: "1h", type: "break" },
-];
-
 export default function SchedulePage() {
     const { user } = useUserStore();
-    const [items, setItems] = useState<ScheduleItem[]>(initialItems);
+    const [items, setItems] = useState<ScheduleItem[]>([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [newBlock, setNewBlock] = useState({ title: "", time: "", duration: "1h", type: "deep-work" });
 
@@ -198,17 +189,8 @@ export default function SchedulePage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <div className="p-3 bg-white/80 dark:bg-white/5 border border-border/40 dark:border-white/10 rounded-md cursor-grab active:cursor-grabbing hover:bg-white/100 dark:hover:bg-white/10 transition-colors">
-                            <span className="text-sm font-medium">Review Q4 Metrics</span>
-                            <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                                <span className="bg-blue-500/20 px-1.5 py-0.5 rounded text-blue-300">30m</span>
-                            </div>
-                        </div>
-                        <div className="p-3 bg-white/80 dark:bg-white/5 border border-border/40 dark:border-white/10 rounded-md cursor-grab active:cursor-grabbing hover:bg-white/100 dark:hover:bg-white/10 transition-colors">
-                            <span className="text-sm font-medium">Read "Atomic Habits"</span>
-                            <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                                <span className="bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-300">45m</span>
-                            </div>
+                        <div className="p-4 text-center text-sm text-muted-foreground">
+                            No unscheduled tasks
                         </div>
                     </CardContent>
                 </Card>

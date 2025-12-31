@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Check, Clock } from "lucide-react";
+import { Plus, Check, Clock, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
     Dialog,
@@ -39,34 +39,21 @@ type Task = {
 
 export function TodoPanel() {
     const { user } = useUserStore();
-    const [tasks, setTasks] = useState<Task[]>(() => {
-        // Prefer localStorage so navigation between pages keeps state
-        if (typeof window === "undefined") {
-            return [
-                { id: "1", text: "Morning Meditation", completed: true, time: "7:00 AM", category: "Health" },
-                { id: "2", text: "Deep Work Session", completed: false, time: "9:00 AM", category: "Work" },
-                { id: "3", text: "Review Weekly Goals", completed: false, time: "2:00 PM", category: "Planning" },
-                { id: "4", text: "Gym & Recovery", completed: false, time: "5:30 PM", category: "Health" },
-            ];
-        }
+    const [tasks, setTasks] = useState<Task[]>([]);
+
+    useEffect(() => {
         try {
             const raw = window.localStorage.getItem("selfos-todo-panel");
             if (raw) {
                 const parsed = JSON.parse(raw) as Task[] | undefined;
-                if (Array.isArray(parsed) && parsed.length) {
-                    return parsed;
+                if (Array.isArray(parsed)) {
+                    setTasks(parsed);
                 }
             }
         } catch (e) {
             console.warn("Failed to load todo panel tasks from localStorage:", e);
         }
-        return [
-            { id: "1", text: "Morning Meditation", completed: true, time: "7:00 AM", category: "Health" },
-            { id: "2", text: "Deep Work Session", completed: false, time: "9:00 AM", category: "Work" },
-            { id: "3", text: "Review Weekly Goals", completed: false, time: "2:00 PM", category: "Planning" },
-            { id: "4", text: "Gym & Recovery", completed: false, time: "5:30 PM", category: "Health" },
-        ];
-    });
+    }, []);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [newTask, setNewTask] = useState({ text: "", time: "", category: "Work" });
 
@@ -109,6 +96,14 @@ export function TodoPanel() {
     const toggleTask = (id: string) => {
         setTasks((prev) => {
             const next = prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+            persistTasks(next);
+            return next;
+        });
+    };
+
+    const deleteTask = (id: string) => {
+        setTasks((prev) => {
+            const next = prev.filter(t => t.id !== id);
             persistTasks(next);
             return next;
         });
@@ -208,7 +203,7 @@ export function TodoPanel() {
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, x: -10 }}
-                                    className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${task.completed
+                                    className={`flex items-center space-x-3 p-3 rounded-lg border transition-all group ${task.completed
                                         ? "bg-blue-500/10 border-blue-500/30"
                                         : "bg-white/40 dark:bg-white/5 border-border/40 dark:border-white/5 hover:bg-white/70 dark:hover:bg-white/10"
                                         }`}
@@ -237,6 +232,14 @@ export function TodoPanel() {
                                             )}
                                         </div>
                                     </div>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-6 w-6 text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => deleteTask(task.id)}
+                                    >
+                                        <Trash2 className="w-3 h-3" />
+                                    </Button>
                                 </motion.div>
                             ))}
                         </AnimatePresence>

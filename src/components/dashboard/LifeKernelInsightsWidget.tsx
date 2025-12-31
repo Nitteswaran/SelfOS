@@ -2,10 +2,38 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { Sparkles, Brain, ArrowRight } from "lucide-react";
+import { Brain, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useUserStore } from "@/lib/store/userStore";
+import { db, isConfigured } from "@/lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import { useEffect, useState } from "react";
 
 export function LifeKernelInsightsWidget() {
+    const { user } = useUserStore();
+    const [insight, setInsight] = useState("Initializing Life Kernel...");
+    const [actions, setActions] = useState<{ label: string; action: string; color: string }[]>([]);
+
+    useEffect(() => {
+        if (!user || !isConfigured) {
+            setInsight("Connect to Life Kernel to see insights.");
+            return;
+        }
+
+        const ref = doc(db, "users", user.uid, "insights", "dailyKernel");
+        const unsub = onSnapshot(ref, (snap) => {
+            if (snap.exists()) {
+                const data = snap.data();
+                setInsight(data.message || "No insights available for today.");
+                setActions(data.actions || []);
+            } else {
+                setInsight("No insights generated yet. Continue using the app to build your profile.");
+            }
+        });
+
+        return () => unsub();
+    }, [user]);
+
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -26,22 +54,22 @@ export function LifeKernelInsightsWidget() {
                 <CardContent className="flex-1 flex flex-col gap-4 relative z-10">
                     <div className="bg-white/5 dark:bg-white/5 border border-border/60 dark:border-white/10 rounded-lg p-4 backdrop-blur-sm">
                         <p className="text-lg font-medium leading-relaxed text-foreground/90 dark:text-white/90">
-                            "Your energy is strictly limited today. Prioritize the deep work session at 9am and delegate the admin tasks."
+                            "{insight}"
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 mt-auto">
-                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3 flex flex-col gap-1 cursor-pointer hover:bg-blue-500/20 transition-colors">
-                            <span className="text-xs text-blue-300 font-mono uppercase">Optimized Action</span>
-                            <span className="text-sm font-semibold">Reschedule Gym to 6pm</span>
+                    {actions.length > 0 && (
+                        <div className="grid grid-cols-2 gap-3 mt-auto">
+                            {actions.map((action, i) => (
+                                <div key={i} className={`bg-${action.color}-500/10 border border-${action.color}-500/20 rounded-md p-3 flex flex-col gap-1 cursor-pointer hover:bg-${action.color}-500/20 transition-colors`}>
+                                    <span className={`text-xs text-${action.color}-300 font-mono uppercase`}>{action.label}</span>
+                                    <span className="text-sm font-semibold">{action.action}</span>
+                                </div>
+                            ))}
                         </div>
-                        <div className="bg-purple-500/10 border border-purple-500/20 rounded-md p-3 flex flex-col gap-1 cursor-pointer hover:bg-purple-500/20 transition-colors">
-                            <span className="text-xs text-purple-300 font-mono uppercase">Focus Mode</span>
-                            <span className="text-sm font-semibold">Enable for 2 hours</span>
-                        </div>
-                    </div>
+                    )}
 
-                    <Button variant="ghost" className="w-full text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground dark:hover:text-white mt-2">
+                    <Button variant="ghost" className="w-full text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground dark:hover:text-white mt-auto">
                         View Full Analysis <ArrowRight className="w-3 h-3 ml-2" />
                     </Button>
                 </CardContent>

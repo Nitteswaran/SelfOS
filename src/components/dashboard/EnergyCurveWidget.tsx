@@ -3,17 +3,53 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { motion } from "framer-motion";
+import { useUserStore } from "@/lib/store/userStore";
+import { db, isConfigured } from "@/lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import { useEffect, useState } from "react";
 
-const data = [
-    { time: "6am", energy: 30 },
-    { time: "9am", energy: 80 },
-    { time: "12pm", energy: 60 },
-    { time: "3pm", energy: 90 },
-    { time: "6pm", energy: 50 },
-    { time: "9pm", energy: 20 },
+// Baseline human circadian rhythm (approximate)
+const baselineData = [
+    { time: "6am", energy: 40 },
+    { time: "9am", energy: 85 },
+    { time: "12pm", energy: 70 },
+    { time: "3pm", energy: 60 },
+    { time: "6pm", energy: 75 },
+    { time: "9pm", energy: 30 },
 ];
 
 export function EnergyCurveWidget() {
+    const { user } = useUserStore();
+    const [data, setData] = useState(baselineData);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!user || !isConfigured) {
+            setLoading(false);
+            return;
+        }
+
+        const ref = doc(db, "users", user.uid, "insights", "energyCurve");
+        const unsub = onSnapshot(ref, (snap) => {
+            if (snap.exists()) {
+                const fetched = snap.data().data;
+                if (Array.isArray(fetched) && fetched.length > 0) {
+                    setData(fetched);
+                }
+            } else {
+                // Initialize with baseline if empty
+                // We use setDoc (merge: true) to avoid overwriting if something else writes simultaneously, 
+                // but mostly to establish the initial state for the user.
+                // However, avoid setting if we don't want to force write on read. 
+                // Better: Just show baseline client-side if no remote data.
+                setData(baselineData);
+            }
+            setLoading(false);
+        });
+
+        return () => unsub();
+    }, [user]);
+
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -25,7 +61,7 @@ export function EnergyCurveWidget() {
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 dark:from-blue-500/5 dark:to-purple-500/5 pointer-events-none" />
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                        <div className={`w-2 h-2 rounded-full ${loading ? "bg-yellow-500" : "bg-blue-500 animate-pulse"}`} />
                         Predicted Energy Levels
                     </CardTitle>
                 </CardHeader>

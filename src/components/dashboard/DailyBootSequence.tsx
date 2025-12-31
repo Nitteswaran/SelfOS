@@ -10,32 +10,25 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 
 type BootStep = { id: number; label: string; completed: boolean };
 
-const DEFAULT_STEPS: BootStep[] = [
-  { id: 1, label: "Hydrate (500ml)", completed: true },
-  { id: 2, label: "Review Goals", completed: true },
-  { id: 3, label: "Morning Light", completed: false },
-  { id: 4, label: "Commit to One Task", completed: false },
-];
+const DEFAULT_STEPS: BootStep[] = [];
 
 export function DailyBootSequence() {
   const { user } = useUserStore();
-  const [steps, setSteps] = useState<BootStep[]>(() => {
-		if (typeof window === "undefined") {
-			return DEFAULT_STEPS;
-		}
-		try {
-			const raw = window.localStorage.getItem("selfos-daily-boot-sequence");
-			if (raw) {
-				const parsed = JSON.parse(raw) as BootStep[] | undefined;
-				if (Array.isArray(parsed) && parsed.length) {
-					return parsed;
-				}
-			}
-		} catch (e) {
-			console.warn("Failed to load daily boot sequence from localStorage:", e);
-		}
-		return DEFAULT_STEPS;
-	});
+  const [steps, setSteps] = useState<BootStep[]>(DEFAULT_STEPS);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("selfos-daily-boot-sequence");
+      if (raw) {
+        const parsed = JSON.parse(raw) as BootStep[] | undefined;
+        if (Array.isArray(parsed) && parsed.length) {
+          setSteps(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load daily boot sequence from localStorage:", e);
+    }
+  }, []);
 
   // Load saved steps for this user
   useEffect(() => {
@@ -65,14 +58,14 @@ export function DailyBootSequence() {
       const next = prev.map((step) =>
         step.id === id ? { ...step, completed: !step.completed } : step,
       );
-			// Mirror to localStorage
-			if (typeof window !== "undefined") {
-				try {
-					window.localStorage.setItem("selfos-daily-boot-sequence", JSON.stringify(next));
-				} catch (e) {
-					console.warn("Failed to save daily boot sequence to localStorage:", e);
-				}
-			}
+      // Mirror to localStorage
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem("selfos-daily-boot-sequence", JSON.stringify(next));
+        } catch (e) {
+          console.warn("Failed to save daily boot sequence to localStorage:", e);
+        }
+      }
       // Persist asynchronously
       if (user && isConfigured) {
         const ref = doc(db, "users", user.uid, "widgets", "dailyBootSequence");

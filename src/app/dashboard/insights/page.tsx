@@ -2,28 +2,39 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
-import { motion } from "framer-motion";
 import { TrendingUp, Zap, Clock, Target } from "lucide-react";
-
-// Mock Data
-const energyData = [
-    { day: "Mon", level: 65, focus: 4 },
-    { day: "Tue", level: 85, focus: 6 },
-    { day: "Wed", level: 45, focus: 3 },
-    { day: "Thu", level: 90, focus: 7 },
-    { day: "Fri", level: 70, focus: 5 },
-    { day: "Sat", level: 80, focus: 6 },
-    { day: "Sun", level: 95, focus: 8 },
-];
-
-const domainDistribution = [
-    { name: "Career", hours: 25 },
-    { name: "Health", hours: 8 },
-    { name: "Learning", hours: 12 },
-    { name: "Admin", hours: 5 },
-];
+import { useUserStore } from "@/lib/store/userStore";
+import { db, isConfigured } from "@/lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import { useEffect, useState } from "react";
 
 export default function InsightsPage() {
+    const { user } = useUserStore();
+    const [energyData, setEnergyData] = useState([]);
+    const [domainDistribution, setDomainDistribution] = useState([]);
+    const [metrics, setMetrics] = useState({
+        avgEnergy: { value: "--", trend: "", trendUp: true },
+        focusHours: { value: "--", trend: "", trendUp: true },
+        goalProgress: { value: "--", trend: "", trendUp: true },
+        systemEfficiency: { value: "--", trend: "", trendUp: true }
+    });
+
+    useEffect(() => {
+        if (!user || !isConfigured) return;
+
+        const ref = doc(db, "users", user.uid, "insights", "analytics");
+        const unsub = onSnapshot(ref, (snap) => {
+            if (snap.exists()) {
+                const data = snap.data();
+                if (data.energyData) setEnergyData(data.energyData);
+                if (data.domainDistribution) setDomainDistribution(data.domainDistribution);
+                if (data.metrics) setMetrics(data.metrics);
+            }
+        });
+
+        return () => unsub();
+    }, [user]);
+
     return (
         <div className="flex flex-col gap-6 p-6 h-full w-full max-w-7xl mx-auto">
             <div className="flex flex-col gap-2">
@@ -33,10 +44,10 @@ export default function InsightsPage() {
 
             {/* Key Metrics Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <MetricCard title="Avg. Energy" value="76%" icon={Zap} trend="+5%" trendUp={true} />
-                <MetricCard title="Focus Hours" value="34h" icon={Clock} trend="+2h" trendUp={true} />
-                <MetricCard title="Goal Progress" value="12%" icon={Target} trend="+1%" trendUp={true} />
-                <MetricCard title="System Efficiency" value="8.4" icon={TrendingUp} trend="-0.2" trendUp={false} />
+                <MetricCard title="Avg. Energy" value={metrics.avgEnergy.value} icon={Zap} trend={metrics.avgEnergy.trend} trendUp={metrics.avgEnergy.trendUp} />
+                <MetricCard title="Focus Hours" value={metrics.focusHours.value} icon={Clock} trend={metrics.focusHours.trend} trendUp={metrics.focusHours.trendUp} />
+                <MetricCard title="Goal Progress" value={metrics.goalProgress.value} icon={Target} trend={metrics.goalProgress.trend} trendUp={metrics.goalProgress.trendUp} />
+                <MetricCard title="System Efficiency" value={metrics.systemEfficiency.value} icon={TrendingUp} trend={metrics.systemEfficiency.trend} trendUp={metrics.systemEfficiency.trendUp} />
             </div>
 
             {/* Charts Row 1 */}
